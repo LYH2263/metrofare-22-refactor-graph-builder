@@ -1,6 +1,6 @@
 from app.db import connect
 from app.engines.route_quote import quote_route
-from app.repositories import edges as edges_repo
+from app.network import build_network
 from app.repositories import fare_rules as rules_repo
 from app.repositories import runs as runs_repo
 from app.repositories import settings as settings_repo
@@ -20,6 +20,9 @@ class MetroService:
     def __exit__(self, *a):
         self.close()
 
+    def _network(self):
+        return build_network(self._conn)
+
     def stations(self):
         return stations_repo.list_all(self._conn)
 
@@ -27,7 +30,7 @@ class MetroService:
         return stations_repo.get_by_code(self._conn, code)
 
     def edges(self):
-        return [{"a": a, "b": b} for a, b in edges_repo.list_pairs(self._conn)]
+        return self._network().edges
 
     def fare_rules(self):
         return rules_repo.list_ordered(self._conn)
@@ -36,9 +39,9 @@ class MetroService:
         return settings_repo.get_map(self._conn)
 
     def quote(self, start: str, end: str, persist: bool):
-        edges = edges_repo.list_pairs(self._conn)
+        net = self._network()
         rules = rules_repo.as_calc_rules(self._conn)
-        result = quote_route(edges, start, end, rules)
+        result = quote_route(net.adjacency, start, end, rules)
         run_id = None
         if persist and result.get("reachable"):
             run_id = runs_repo.insert(self._conn, "quote", {"start": start, "end": end}, result)
@@ -48,12 +51,13 @@ class MetroService:
         return runs_repo.list_recent(self._conn, limit)
 
     def dashboard(self):
-        st = stations_repo.list_all(self._conn)
+        net = self._network()
+        st = net.stations
         clean = [s for s in st if "种子" not in s["name"]]
         dirty = [s for s in st if "种子" in s["name"]]
         return {
             "station_count": len(st),
-            "edge_count": len(edges_repo.list_pairs(self._conn)),
+            "edge_count": net.edge_count,
             "clean_stations": len(clean),
             "dirty_stations": len(dirty),
         }

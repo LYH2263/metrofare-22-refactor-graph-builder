@@ -1,21 +1,17 @@
-from collections import defaultdict, deque
+from collections import deque
 
 
-def shortest_hops(edges: list[tuple[str, str]], start: str, end: str) -> int | None:
-    """Undirected graph BFS hop count; None if unreachable."""
+def shortest_hops(adjacency: dict[str, set[str]], start: str, end: str) -> int | None:
+    """Undirected graph BFS hop count over a prebuilt adjacency map; None if unreachable."""
     if start == end:
         return 0
-    g: dict[str, set[str]] = defaultdict(set)
-    for a, b in edges:
-        g[a].add(b)
-        g[b].add(a)
-    if start not in g or end not in g:
+    if start not in adjacency or end not in adjacency:
         return None
     q = deque([(start, 0)])
     seen = {start}
     while q:
         cur, d = q.popleft()
-        for nxt in g[cur]:
+        for nxt in adjacency[cur]:
             if nxt in seen:
                 continue
             if nxt == end:
